@@ -1,7 +1,7 @@
 # MoyaNetworkManager
 对Moya框架的二次封装，容易使用，同时也可以自定义配置
 
-![image-20230418155953500](/Users/nge0131/Library/Application Support/typora-user-images/image-20230418155953500.png)
+![image-20230418155953500](introduction.png)
 
 ## 使用
 
