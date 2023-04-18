@@ -1,0 +1,6 @@
+framework module Pods_MoyaNetworkManager {
+  umbrella header "Pods-MoyaNetworkManager-umbrella.h"
+
+  export *
+  module * { export * }
+}
