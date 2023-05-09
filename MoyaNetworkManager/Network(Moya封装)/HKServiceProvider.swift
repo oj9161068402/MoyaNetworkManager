@@ -21,13 +21,15 @@ class HKServiceProvider<APITarget: TargetType> {
     
     static var plugins: [PluginType] {
         let activityPlugin = NewNetworkActivityPlugin { (change, target) in
-            switch change {
-            case .began:
-                if target.isShowLoading {}
-                break
-            case .ended:
-                if target.isShowLoading {}
-                break
+            if let target = target as? HKServiceType {
+                switch change {
+                case .began:
+                    if target.isShowLoading {}
+                    break
+                case .ended:
+                    if target.isShowLoading {}
+                    break
+                }
             }
         }
         
@@ -39,7 +41,7 @@ class HKServiceProvider<APITarget: TargetType> {
             return "token"
         }
         
-        return [activityPlugin, loggerPlugin, authPlugin]
+        return [loggerPlugin]
     }
     
     // MARK: - 逃逸闭包
@@ -130,7 +132,7 @@ extension HKServiceProvider {
  */
 extension HKServiceProvider {
     /// (json) = [code: , msg: , data:]
-    public func requestWithJson(_ target: APITarget, success: @escaping SuccessJsonBlock, failure: @escaping FailureBlock) -> Cancellable {
+    public func requestWithJson(_ target: APITarget, success: @escaping SuccessJsonBlock, failure: @escaping FailureBlock) -> Cancellable? {
         let cancellable = moyaProvider.request(target) { result in
             // 过滤响应是否成功
             switch result {
@@ -161,7 +163,7 @@ extension HKServiceProvider {
     }
     
     /// (code, msg, data, jsonString)
-    public func requestWithData(_ target: APITarget, success: @escaping SuccessDataBlock, failure: @escaping FailureBlock) -> Cancellable {
+    public func requestWithData(_ target: APITarget, success: @escaping SuccessDataBlock, failure: @escaping FailureBlock) -> Cancellable? {
         // 解析json
         let cancellable = self.requestWithJson(target) { json in
             if let json = json {
@@ -187,7 +189,7 @@ extension HKServiceProvider {
     }
     
     /// (code, msg, model, jsonString)
-    public func requestWithModel<ModelType :HandyJSON>(_ target: APITarget, modelType: ModelType.Type, success: @escaping SuccessModelBlock<ModelType>, failure: @escaping FailureBlock) -> Cancellable {
+    public func requestWithModel<ModelType :HandyJSON>(_ target: APITarget, modelType: ModelType.Type, success: @escaping SuccessModelBlock<ModelType>, failure: @escaping FailureBlock) -> Cancellable? {
         let cancellable = self.requestWithData(target) { code, msg, data, jsonString in
             // 反序列化
             let dataDict = data as? [String: Any]
@@ -200,7 +202,7 @@ extension HKServiceProvider {
     }
     
     /// (code, msg, [model], jsonString)
-    public func requestWithModelList<ModelType :HandyJSON>(_ target: APITarget, modelType: ModelType.Type, success: @escaping SuccessListModelBlock<ModelType>, failure: @escaping FailureBlock) -> Cancellable {
+    public func requestWithModelList<ModelType :HandyJSON>(_ target: APITarget, modelType: ModelType.Type, success: @escaping SuccessListModelBlock<ModelType>, failure: @escaping FailureBlock) -> Cancellable? {
         let cancellable = self.requestWithData(target) { code, msg, data, jsonString in
             // 反序列化
             let dataArray = data as? [Any]
@@ -218,7 +220,7 @@ extension HKServiceProvider {
 extension HKServiceProvider {
     
     /// .success(code, msg, data, jsonString)
-    public func requestWithResultData(_ target: APITarget, completion: @escaping CompletionResultJsonBlock) -> Cancellable {
+    public func requestWithResultData(_ target: APITarget, completion: @escaping CompletionResultJsonBlock) -> Cancellable? {
         let cancellable = self.requestWithJson(target) { json in
             if let json = json {
                 guard let code = json[RESULT_CODE_KEY] as? Int else {
@@ -242,7 +244,7 @@ extension HKServiceProvider {
     }
     
     /// .success(code, msg, model, jsonString)
-    public func requestWithResultModel<ModelType: HandyJSON>(_ target: APITarget, type: ModelType.Type, completion: @escaping CompletionResultModelBlock<ModelType>) -> Cancellable {
+    public func requestWithResultModel<ModelType: HandyJSON>(_ target: APITarget, type: ModelType.Type, completion: @escaping CompletionResultModelBlock<ModelType>) -> Cancellable? {
         let cancellable = self.requestWithResultData(target) { result in
             switch result {
             case let .success((code, msg, data, jsonString)):
@@ -261,7 +263,7 @@ extension HKServiceProvider {
     }
     
     /// .success(code, msg, [model], jsonString)
-    public func requestWithResultModelList<ModelType: HandyJSON>(_ target: APITarget, type: ModelType.Type, completion: @escaping CompletionResultModelListBlock<ModelType>) -> Cancellable {
+    public func requestWithResultModelList<ModelType: HandyJSON>(_ target: APITarget, type: ModelType.Type, completion: @escaping CompletionResultModelListBlock<ModelType>) -> Cancellable? {
         let cancellable = self.requestWithResultData(target) { result in
             switch result {
             case let .success((code, msg, data, jsonString)):

@@ -7,6 +7,7 @@
 
 import Foundation
 import Moya
+import CommonCrypto
 
 /**
  Moya默认四个插件：
@@ -21,18 +22,18 @@ import Moya
 class NewNetworkLoggerPlugin: PluginType {
     
     /// 请求发送前的编辑（加密），例如添加headers
-    func prepare(_ request: URLRequest, target: HKServiceType) -> URLRequest {
+    func prepare(_ request: URLRequest, target: TargetType) -> URLRequest {
 //        request.cachePolicy
         return request
     }
     
     /// 发送请求前调用
-    func willSend(_ request: RequestType, target: HKServiceType) {
+    func willSend(_ request: RequestType, target: TargetType) {
         print("will send request: \(request.request?.url?.absoluteString ?? "")")
     }
     
     /// 收到响应后调用 -> error状况
-    func didReceive(_ result: Result<Response, MoyaError>, target: HKServiceType) {
+    func didReceive(_ result: Result<Response, MoyaError>, target: TargetType) {
         #if DEBUG
         switch result {
         case let .success(response):
@@ -40,14 +41,16 @@ class NewNetworkLoggerPlugin: PluginType {
                 XXLog("网络请求成功：\(target.task)")
                 _ = try response.filterSuccessfulStatusAndRedirectCodes()
             } catch let error {
-                // 请求参数信息
-                let parametersMsg = target.parameters != nil ? target.parameters?.toJsonString() ?? "" : "空"
-                
-                XXLog("网络请求失败!\n"
-                      + "==== 错误码 ==== \(response.statusCode)\n"
-                      + "==== URL地址 ==== " + target.baseURL.absoluteString + "/" + target.path + "\n"
-                      + "==== 请求参数 ==== " + parametersMsg + "\n"
-                      + "==== 错误信息 ==== \(error.localizedDescription)")
+                if let target = target as? HKServiceType {
+                    // 请求参数信息
+                    let parametersMsg = target.parameters != nil ? target.parameters?.toJsonString() ?? "" : "空"
+                    
+                    XXLog("网络请求失败!\n"
+                          + "==== 错误码 ==== \(response.statusCode)\n"
+                          + "==== URL地址 ==== " + target.baseURL.absoluteString + "/" + target.path + "\n"
+                          + "==== 请求参数 ==== " + parametersMsg + "\n"
+                          + "==== 错误信息 ==== \(error.localizedDescription)")
+                }
             }
             break
         case .failure(let error):
@@ -62,39 +65,42 @@ class NewNetworkLoggerPlugin: PluginType {
     }
     
     /// completion执行前对result的编辑(解密) -> success状况
-    func process(_ result: Result<Response, MoyaError>, target: HKServiceType) -> Result<Response, MoyaError> {
+    func process(_ result: Result<Response, MoyaError>, target: TargetType) -> Result<Response, MoyaError> {
         var result = result // 变量
         switch result {
         case .success(let response):
             do {
                 _ = try response.filterSuccessfulStatusAndRedirectCodes()
-                /// 对响应数据进行解密，然后再封装成一个新的响应，然后返回
-                if target.isEncryption {
-                    // 对加密数据进行解密
-                    let responseJson = RING_CryptoUtils.decryptString(response.data, key: decryptionKey) as! [String: Any]
-                    let responseData = responseJson.jsonToData()
-                    // 对响应数据重新封装
-                    let newResponse = Response(statusCode: response.statusCode, data: responseData ?? Data(), request: response.request, response: response.response)
-                    let newResult = Result<Response, MoyaError>.success(newResponse)
-                    
-                    // 打印日志
-                    print("++++++++++++++接口请求信息+++++++++++++++")
-                    print("接口信息：\(target.apiDescription ?? "")")
-                    print("请求路径：\(target.baseURL.appendingPathComponent(target.path))")
-                    if let parameters = target.parameters {
-                        print("请求参数：\(String(describing: parameters))")
+                if let target = target as? HKServiceType {
+                    /// 对响应数据进行解密，然后再封装成一个新的响应，然后返回
+                    if target.isEncryption {
+                        // 对加密数据进行解密
+                        let responseJson = RING_CryptoUtils.decryptString(response.data, key: decryptionKey) as! [String: Any]
+                        let responseData = responseJson.jsonToData()
+                        // 对响应数据重新封装
+                        let newResponse = Response(statusCode: response.statusCode, data: responseData ?? Data(), request: response.request, response: response.response)
+                        let newResult = Result<Response, MoyaError>.success(newResponse)
+                        
+                        // 打印日志
+                        print("++++++++++++++接口请求信息+++++++++++++++")
+                        print("接口信息：\(target.apiDescription ?? "")")
+                        print("请求路径：\(target.baseURL.appendingPathComponent(target.path))")
+                        if let parameters = target.parameters {
+                            print("请求参数：\(String(describing: parameters))")
+                        } else {
+                            print("请求参数：空")
+                        }
+                        print("成功 ===== " + "\(String(describing: try? newResponse.mapJSON()))")
+//                        print("成功响应 ==== " + "\((try? newResponse.mapJSON() as? [String: Any])?.toJsonString() ?? "")")
+                        print("++++++++++++++**********+++++++++++++++")
+                        return newResult
                     } else {
-                        print("请求参数：空")
+                        // 未加密的情况，只返回code和msg信息
+                        // response.data原信息被拦截
+                        let dict = ["code": "0", "msg": "此请求数据未加密"]
+                        let newResponse = Response(statusCode: response.statusCode, data: dict.jsonToData() ?? Data(), request: response.request, response: response.response)
+                        return .success(newResponse)
                     }
-                    print("成功响应 ==== " + "\((try? newResponse.mapJSON() as? [String: Any])?.toJsonString() ?? "")")
-                    print("++++++++++++++**********+++++++++++++++")
-                    return newResult
-                } else {
-                    // 未加密的情况，只返回code和msg信息
-                    // response.data原信息被拦截
-                    let dict = ["code": "0", "msg": "此请求数据未加密"]
-                    let newResponse = Response(statusCode: response.statusCode, data: dict.jsonToData() ?? Data(), request: response.request, response: response.response)
-                    return .success(newResponse)
                 }
             } catch _ {}
             

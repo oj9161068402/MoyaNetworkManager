@@ -17,7 +17,7 @@ import Moya
 // MARK: - 授权 plugin (与AccessTokenPlugin实现的功能一样)
 public final class AuthPlugin: PluginType {
     
-    public typealias TokenClosure = (_ target: HKServiceType) -> String?
+    public typealias TokenClosure = (_ target: TargetType) -> String?
     
     public let tokenClosure: TokenClosure
     
@@ -25,13 +25,15 @@ public final class AuthPlugin: PluginType {
         self.tokenClosure = tokenClosure
     }
     
-    public func prepare(_ request: URLRequest, target: HKServiceType) -> URLRequest {
-        guard let token = self.tokenClosure(target), target.needsAuth else { return request }
-        
-        var request = request
-        let authValue = AuthorizationType.bearer.value + " " + token
-        request.addValue(authValue, forHTTPHeaderField: "Authorization")
-        
+    public func prepare(_ request: URLRequest, target: TargetType) -> URLRequest {
+        if let target = target as? HKServiceType {
+            guard let token = self.tokenClosure(target), target.needsAuth else { return request }
+            
+            var request = request
+            let authValue = AuthorizationType.bearer.value + " " + token
+            request.addValue(authValue, forHTTPHeaderField: "Authorization")
+            
+        }
         return request
     }
     

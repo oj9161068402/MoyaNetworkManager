@@ -32,7 +32,7 @@ class TestViewController: UIViewController {
     /// 测试样例：model
     func requestTestModel() {
         let provider = HKServiceProvider<MealPlanServiceTypeAPIEnum>.init()
-        let cancellable = provider.requestWithModel(MealPlanServiceTypeAPIEnum.testApi, modelType: TestModel.self) { [weak self] (code, msg, model, jsonStr) in
+        provider.requestWithModel(MealPlanServiceTypeAPIEnum.testApi, modelType: TestModel.self) { [weak self] (code, msg, model, jsonStr) in
             guard let self = self else { return }
             
             // 数据赋值
@@ -40,16 +40,13 @@ class TestViewController: UIViewController {
         } failure: { error in
             print("\(error)")
         }
-
-        if !cancellable.isCancelled {
-            cancellable.cancel()
-        }
+        
     }
     
     /// 测试样例：Result<>.model
     func requestResultTestModel() {
         let provider = HKServiceProvider<MealPlanServiceTypeAPIEnum>.init()
-        let cancellable = provider.requestWithResultModel(MealPlanServiceTypeAPIEnum.testApi, type: TestModel.self) { [weak self] result in
+        provider.requestWithResultModel(MealPlanServiceTypeAPIEnum.testApi, type: TestModel.self) { [weak self] result in
             guard let self = self else { return }
             
             switch result {
@@ -64,9 +61,6 @@ class TestViewController: UIViewController {
             }
         }
         
-        if !cancellable.isCancelled {
-            cancellable.cancel()
-        }
     }
 
 }
